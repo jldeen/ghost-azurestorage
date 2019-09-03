@@ -1,6 +1,6 @@
 {
   "name": "ghost-storage-azure",
-  "version": "1.0.3-rc.1",
+  "version": "1.0.4",
   "description": "Store content from ghost in azure file storage",
   "main": "index.js",
   "scripts": {
@@ -27,7 +27,9 @@
   "dependencies": {
     "azure-storage": "^2.10.2",
     "bluebird": "^3.5.1",
+    "fs": "0.0.1-security",
     "ghost-storage-base": "^0.0.3",
+    "sharp": "^0.23.0",
     "url": "^0.11.0"
   }
 }
