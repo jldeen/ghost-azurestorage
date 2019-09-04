@@ -8,6 +8,7 @@ const url = require('url');
 const sharp = require('sharp');
 const fs = require('fs');
 const format = require('./lib/format');
+const resize = require('./lib/resize')
 const sizes = require('./lib/sizes');
 
 var options = {};
@@ -37,88 +38,78 @@ class AzureStorageAdapter extends BaseStorage {
     var fileService = azure.createBlobService(options.connectionString);
 
     let config = {
-      contentSettings: { 
+        contentSettings: { 
         contentType: image.type, 
         cacheControl: 'public, max-age=2592000' 
-        }, 
-        function (error) {
-        if (error) {
-            console.log(error);
-            reject(error.message);
-        }
-      }
+        } 
     }
 
+    // Appends the dated folder if enabled
+    if (options.useDatedFolder) {
+      let date = new Date();
+      var blobName = "images" + "/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + date.getHours() + date.getMinutes() + "_" + image.name;
+    }
+    else {
+      var blobName = "images" + "/" + image.name;
+    }
+    //basic upload
     return new Promise(function (resolve, reject) {
-      //create container if not exist
       fileService.createContainerIfNotExists(options.container, { publicAccessLevel: 'blob' }, function (error) {
         if (error)
           console.log(error);
         else {
-          console.log('Created the container or already existed. Container: ' + options.container);
-            Promise.map(sizes, function(size) {
-              // remove extension, prep for webp format
-              var imageName = image.name.replace(/\.[^/.]+$/, "")
+          console.log('Created the container or already existed. Container:' + options.container);
+            fileService.createBlockBlobFromLocalFile(options.container, blobName, image.path, config, 
+            function (error) {
+            if (error) {
+              console.log(error);
+              reject(error.message);
+            }
+            else {
+              var urlValue = fileService.getUrl(options.container, blobName);
 
-               // Appends the dated folder if enabled
-              if (options.useDatedFolder) {
-                let date = new Date();
+              console.log('Uploaded blob name: ' + blobName + ',' + ' local image filename is: ' + image.path);
 
-                var blobName = "images" + "/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + date.getHours() + date.getMinutes() + "_" + imageName;
+              if (!options.cdnUrl) {
+                resolve(urlValue);
+
+                console.log('CDN not specified, urlValue is: ' + urlValue);
               }
-              // dated folder set to false
-              else {
-                // var blobName = "images" + "/" + image.name;
-                var blobName = "images" + "/size/" + 'w'+ size.x + "/" + imageName + ".webp";
-              } 
-                // console.log(image)
 
-                //raw image
-                var rawFile = image.path;
-                var blobNameRaw = "images" + "/" + "raw" + "/" + image.name;;
+              var parsedUrl = url.parse(urlValue, true, true);
+              var protocol = (options.useHttps ? "https" : "http") + "://";
 
-                // console.log("Your raw image path is: " + rawFile)
+              var cdnUrl = protocol + options.cdnUrl + parsedUrl.path
+              resolve(cdnUrl);
 
-                  // upload image
-                  fileService.createBlockBlobFromLocalFile(options.container, blobNameRaw, rawFile, { 
-                  contentSettings: { 
-                  contentType: image.type, 
-                  cacheControl: 'public, max-age=2592000' 
-                  } 
-              }, 
-                  function (error) {
-                  if (error) {
-                      console.log(error);
-                      reject(error.message);
-                  }
-                  else {
-                    // upload successful, get upload url
-                    var urlValue = fileService.getUrl(options.container, blobNameRaw);
+              console.log('CDN is specified, urlValue is: ' + cdnUrl);
+            }
+          });
 
-                    console.log('Uploaded blob name: ' + blobNameRaw + ',' + ' local image path is: ' + image.path);
+          // set webp variables
+          var imageName = image.name.replace(/\.[^/.]+$/, "")
+          var tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
+          var blobNameFormat = "images/optimized/" + imageName + ".webp";
 
-                    // no cdn, get azure storage url only
-                    if (!options.cdnUrl) {
-                    resolve(urlValue);
+          // format image
+          format(image.path, tmpFileFormat)
+          // fileService.createBlockBlobFromLocalFile(options.container, blobNameFormat, tmpFileFormat, config, 
+          //   function (error) {
+          //     if (error) {
+          //       console.log(error);
+          //       reject(error.message);
+          //     }
+          //   })
 
-                    console.log('CDN not specified, urlValue is: ' + urlValue);
-                    }
-
-                    //cdn url, get cdn url
-                    var parsedUrl = url.parse(urlValue, true, true);
-                    var protocol = (options.useHttps ? "https" : "http") + "://";
-                    var cdnUrl = protocol + options.cdnUrl + parsedUrl.path
-                    resolve(cdnUrl);
-
-                    console.log('CDN is specified, urlValue is: ' + cdnUrl);
-                  }
-                });
-              }
-          ); 
+          // resize images 300, 600, 900, 1300
+          Promise.map(sizes, function(size){
+            var tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
+            resize(image.path, tmpFileResize)
+          })
         }
+      });
     });
-  });
-}
+  }
 
   serve() {
     return function customServe(req, res, next) {
@@ -149,5 +140,4 @@ class AzureStorageAdapter extends BaseStorage {
   }
 }
 
-module.exports = options;
 module.exports = AzureStorageAdapter;
