@@ -8,7 +8,6 @@ const url = require('url');
 const sharp = require('sharp');
 const fs = require('fs');
 const format = require('./lib/format');
-const resize = require('./lib/resize')
 const sizes = require('./lib/sizes');
 
 var options = {};
@@ -87,24 +86,46 @@ class AzureStorageAdapter extends BaseStorage {
           });
 
           // set webp variables
-          var imageName = image.name.replace(/\.[^/.]+$/, "")
-          var tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
-          var blobNameFormat = "images/optimized/" + imageName + ".webp";
+          const imageName = image.name.replace(/\.[^/.]+$/, "")
+          const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
+          const blobNameFormat = "images/optimized/" + imageName + ".webp";
 
-          // format image
-          format(image.path, tmpFileFormat)
-          // fileService.createBlockBlobFromLocalFile(options.container, blobNameFormat, tmpFileFormat, config, 
-          //   function (error) {
-          //     if (error) {
-          //       console.log(error);
-          //       reject(error.message);
-          //     }
-          //   })
+          format(image.path, tmpFileFormat).then( data => {
+            fs.writeFileSync(tmpFileFormat, data);
+            console.log('Writing ' + tmpFileFormat + ' to local store');
 
-          // resize images 300, 600, 900, 1300
-          Promise.map(sizes, function(size){
-            var tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
-            resize(image.path, tmpFileResize)
+            fileService.createBlockBlobFromLocalFile(options.container, blobNameFormat, tmpFileFormat, config, 
+              function (error) {
+              if (error) {
+                console.log(error);
+                reject(error.message);
+              }
+              else {
+                console.log('Uploaded formatted image:  ' + blobNameFormat + ',' + ' from local image store path: ' + tmpFileFormat);
+              }
+            })
+          })
+          Promise.map(sizes, function(size)
+          {
+            // resize images 300, 600, 900, 1300 
+            const tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
+            const blobNameResize = "images/sizes/" + size.x + "/" + imageName + ".webp"
+
+            sharp(image.path).resize( size.x ).webp().toBuffer().then(data => {
+                fs.writeFileSync(tmpFileResize, data);
+                console.log('Writing ' + tmpFileResize + ' to local store')
+
+                fileService.createBlockBlobFromLocalFile(options.container, blobNameResize, tmpFileResize, config, 
+                  function (error) {
+                  if (error) {
+                    console.log(error);
+                    reject(error.message);
+                  }
+                  else {
+                    console.log('Uploaded resized image:  ' + blobNameResize + ',' + ' from local image store path: ' + tmpFileResize);
+                  }
+                })
+            })
           })
         }
       });
