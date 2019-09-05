@@ -9,6 +9,8 @@ const sharp = require('sharp');
 const fs = require('fs');
 const format = require('./lib/format');
 const sizes = require('./lib/sizes');
+const resize = require('./lib/resize')
+const FileService = require('./fileService');
 
 var options = {};
 
@@ -34,7 +36,7 @@ class AzureStorageAdapter extends BaseStorage {
 
   save(image) {
     //create azure storage blob connection
-    var fileService = azure.createBlobService(options.connectionString);
+    var fileService = new FileService(options, image);
 
     let config = {
         contentSettings: { 
@@ -51,85 +53,59 @@ class AzureStorageAdapter extends BaseStorage {
     else {
       var blobName = "images" + "/" + image.name;
     }
-    //basic upload
-    return new Promise(function (resolve, reject) {
-      fileService.createContainerIfNotExists(options.container, { publicAccessLevel: 'blob' }, function (error) {
-        if (error)
-          console.log(error);
-        else {
-          console.log('Created the container or already existed. Container:' + options.container);
-            fileService.createBlockBlobFromLocalFile(options.container, blobName, image.path, config, 
-            function (error) {
-            if (error) {
-              console.log(error);
-              reject(error.message);
-            }
-            else {
-              var urlValue = fileService.getUrl(options.container, blobName);
 
-              console.log('Uploaded blob name: ' + blobName + ',' + ' local image filename is: ' + image.path);
+    // set webp variables
+    const imageName = image.name.replace(/\.[^/.]+$/, "")
+    const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
+    const blobNameFormat = "images/optimized/" + imageName + ".webp";
+    // create a container if it doesn't exist
+
+    // upload unmodified image
+    // format image for modified
+      // upload modified image
+    // resize image
+      // upload resized image
+
+    return new Promise(function (resolve, reject) {
+      // upload unmodified
+      fileService.createContainer(options.container)
+        .then(() => {
+          // got the container, create the blob
+          //unmodified upload
+          fileService.createBlob(blobName, config);
+          
+          //formatted image
+          format(image.path, tmpFileFormat)
+
+          fileService.createBlob(blobNameFormat, config)
+            .then(() => {
+              //return url to ghost
+              const urlValue = fileService.getBlob(blobNameFormat);
 
               if (!options.cdnUrl) {
-                resolve(urlValue);
-
                 console.log('CDN not specified, urlValue is: ' + urlValue);
+                resolve(urlValue);
               }
 
               var parsedUrl = url.parse(urlValue, true, true);
               var protocol = (options.useHttps ? "https" : "http") + "://";
-
               var cdnUrl = protocol + options.cdnUrl + parsedUrl.path
-              resolve(cdnUrl);
-
               console.log('CDN is specified, urlValue is: ' + cdnUrl);
-            }
-          });
+              resolve(cdnUrl);
+            });
+          
+          //resize image
+          const tmpFileResize = "/tmp/" + imageName + "-w" + sizes.x + ".webp";
+          const blobNameResize = "images/sizes/" + sizes.x + "/" + imageName + ".webp"
+          
+          resize(image.path, tmpFileResize)
+          fileService.createBlob(blobNameResize, config)
 
-          // set webp variables
-          const imageName = image.name.replace(/\.[^/.]+$/, "")
-          const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
-          const blobNameFormat = "images/optimized/" + imageName + ".webp";
-
-          format(image.path, tmpFileFormat).then( data => {
-            fs.writeFileSync(tmpFileFormat, data);
-            console.log('Writing ' + tmpFileFormat + ' to local store');
-
-            fileService.createBlockBlobFromLocalFile(options.container, blobNameFormat, tmpFileFormat, config, 
-              function (error) {
-              if (error) {
-                console.log(error);
-                reject(error.message);
-              }
-              else {
-                console.log('Uploaded formatted image:  ' + blobNameFormat + ',' + ' from local image store path: ' + tmpFileFormat);
-              }
-            })
-          })
-          Promise.map(sizes, function(size)
-          {
-            // resize images 300, 600, 900, 1300 
-            const tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
-            const blobNameResize = "images/sizes/" + size.x + "/" + imageName + ".webp"
-
-            sharp(image.path).resize( size.x ).webp().toBuffer().then(data => {
-                fs.writeFileSync(tmpFileResize, data);
-                console.log('Writing ' + tmpFileResize + ' to local store')
-
-                fileService.createBlockBlobFromLocalFile(options.container, blobNameResize, tmpFileResize, config, 
-                  function (error) {
-                  if (error) {
-                    console.log(error);
-                    reject(error.message);
-                  }
-                  else {
-                    console.log('Uploaded resized image:  ' + blobNameResize + ',' + ' from local image store path: ' + tmpFileResize);
-                  }
-                })
-            })
-          })
-        }
-      });
-    });
+        })
+      })
+      .catch(
+        console.log(error)
+      )
   }
 
   serve() {
