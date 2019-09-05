@@ -1,10 +1,6 @@
 const azure = require('azure-storage');
 
 class FileService {
-  fileService;
-  image;
-  containerName;
-
   constructor(options, image) {
     //create azure storage blob connection
     this.fileService = azure.createBlobService(options.connectionString);
