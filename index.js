@@ -1,16 +1,14 @@
-'use strict';
+"use strict";
 
 const BaseStorage = require("ghost-storage-base");
 const Promise = require("bluebird");
 const request = require("request");
-const azure = require('azure-storage');
-const url = require('url');
-const sharp = require('sharp');
-const fs = require('fs');
-const format = require('./lib/format');
-const sizes = require('./lib/sizes');
-const resize = require('./lib/resize')
-const FileService = require('./fileService');
+const url = require("url");
+const date = require("./lib/getDate")
+const format = require("./lib/format");
+const sizes = require("./lib/sizes");
+const resize = require("./lib/resize");
+const FileService = require("./lib/fileService");
 
 var options = {};
 
@@ -20,9 +18,10 @@ class AzureStorageAdapter extends BaseStorage {
     super();
 
     options = config || {};
-    options.connectionString = options.connectionString || process.env.AZURE_STORAGE_CONNECTION_STRING;
-    options.container = options.container || 'content';
-    options.useHttps = options.useHttps == 'true';
+    options.connectionString =
+    options.connectionString || process.env.AZURE_STORAGE_CONNECTION_STRING;
+    options.container = options.container || "content";
+    options.useHttps = options.useHttps == "true";
     options.useDatedFolder = options.useDatedFolder || false;
   }
 
@@ -38,102 +37,104 @@ class AzureStorageAdapter extends BaseStorage {
     //create azure storage blob connection
     var fileService = new FileService(options, image);
 
+    // set image config
     let config = {
-        contentSettings: { 
-        contentType: image.type, 
-        cacheControl: 'public, max-age=2592000' 
-        } 
-    }
+      contentSettings: {
+        contentType: image.type,
+        cacheControl: "public, max-age=2592000"
+      }
+    };
+
+    // remove original ext & set .webp format extension
+    const imageName = image.name.replace(/\.[^/.]+$/, "");
 
     // Appends the dated folder if enabled
-    if (options.useDatedFolder) {
-      let date = new Date();
-      var blobName = "images" + "/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + date.getHours() + date.getMinutes() + "_" + image.name;
-    }
+    if (options.useDatedFolder) {   
+      var blobName ="images/original/" + date.useDate() + image.path;
+      var blobNameFormat = "images/" + date.useDate() + imageName + ".webp";
+    } 
     else {
-      var blobName = "images" + "/" + image.name;
+      var blobName = "images/original/" + image.name;
+      var blobNameFormat = "images/" + imageName + ".webp";
     }
-
-    // set webp variables
-    const imageName = image.name.replace(/\.[^/.]+$/, "")
-    const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
-    const blobNameFormat = "images/optimized/" + imageName + ".webp";
-    // create a container if it doesn't exist
-
-    // upload unmodified image
-    // format image for modified
-      // upload modified image
-    // resize image
-      // upload resized image
-
-    return new Promise(function (resolve, reject) {
-      // upload unmodified
-      fileService.createContainer(options.container)
-        .then(() => {
-          // got the container, create the blob
-          //unmodified upload
-          fileService.createBlob(blobName, config);
+    
+    if (image.path.indexOf('_processed') < 0) {
+      console.log("Image upload detected")
+    } else {
+      return new Promise(async (resolve, reject) => {
+        // make sure the container exists
+        await fileService.createContainer(options.container);
+  
+        // upload original image
+        await fileService.createBlob(options.container, blobName, image.path, config);
+  
+        // resize images
+        for (let size of sizes) {
+          // const tmpImageName = image.path.replace(/\.[^/.]+$/, "")
+          const tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
           
-          //formatted image
-          format(image.path, tmpFileFormat)
-
-          fileService.createBlob(blobNameFormat, config)
-            .then(() => {
-              //return url to ghost
-              const urlValue = fileService.getBlob(blobNameFormat);
-
-              if (!options.cdnUrl) {
-                console.log('CDN not specified, urlValue is: ' + urlValue);
-                resolve(urlValue);
-              }
-
-              var parsedUrl = url.parse(urlValue, true, true);
-              var protocol = (options.useHttps ? "https" : "http") + "://";
-              var cdnUrl = protocol + options.cdnUrl + parsedUrl.path
-              console.log('CDN is specified, urlValue is: ' + cdnUrl);
-              resolve(cdnUrl);
-            });
-          
-          //resize image
-          const tmpFileResize = "/tmp/" + imageName + "-w" + sizes.x + ".webp";
-          const blobNameResize = "images/sizes/" + sizes.x + "/" + imageName + ".webp"
-          
-          resize(image.path, tmpFileResize)
-          fileService.createBlob(blobNameResize, config)
-
-        })
-      })
-      .catch(
-        console.log(error)
-      )
+          if (options.useDatedFolder) {
+            var blobNameResize = "images/size/" + sizes.x + "/" + date.useDate() + imageName + ".webp";
+          } 
+          else {
+            var blobNameResize = "images/size/" + size.x + "/" + imageName + ".webp";
+          }
+          await resize(image.path, tmpFileResize);
+  
+          //upload resized images
+          await fileService.createBlob(options.container, blobNameResize, tmpFileResize, config);
+        }
+  
+        // set .webp format extension
+        const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
+        // change format of image to .webp
+        await format(image.path, tmpFileFormat);
+  
+        // upload the optimized image
+        await fileService.createBlob(options.container, blobNameFormat, tmpFileFormat, config);
+  
+        const urlValue = fileService.getBlob(blobNameFormat);
+  
+        if (!options.cdnUrl) {
+          console.log("CDN not specified, urlValue is: " + urlValue);
+          resolve(urlValue);
+        }
+        else {
+          var parsedUrl = url.parse(urlValue, true, true);
+          var protocol = (options.useHttps ? "https" : "http") + "://";
+          var cdnUrl = protocol + options.cdnUrl + parsedUrl.path;
+          console.log("CDN is specified, urlValue is: " + cdnUrl);
+          resolve(cdnUrl);
+        }
+      });
+    }
   }
 
   serve() {
     return function customServe(req, res, next) {
       next();
-    }
+    };
   }
 
-  delete() {
-  
-  }
+  delete() {}
 
   read(options) {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
       var requestSettings = {
-        method: 'GET',
+        method: "GET",
         url: options.path,
         encoding: null
       };
 
-      request(requestSettings, function (error, response, body) {
+      request(requestSettings, function(error, response, body) {
         // Use body as a binary Buffer
         if (error)
-          return reject(new Error("Cannot download image" + " " + options.path));
-        else
-          resolve(body);
+          return reject(
+            new Error("Cannot download image" + " " + options.path)
+          );
+        else resolve(body);
       });
-    })
+    });
   }
 }
 

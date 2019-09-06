@@ -29,6 +29,7 @@
     "bluebird": "^3.5.1",
     "fs": "0.0.1-security",
     "ghost-storage-base": "^0.0.3",
+    "request": "^2.88.0",
     "sharp": "^0.23.0",
     "url": "^0.11.0"
   }
