@@ -5,7 +5,6 @@ const Promise = require("bluebird");
 const request = require("request");
 const url = require("url");
 const date = require("./lib/getDate")
-const format = require("./lib/format");
 const sizes = require("./lib/sizes");
 const resize = require("./lib/resize");
 const FileService = require("./lib/fileService");
@@ -50,51 +49,27 @@ class AzureStorageAdapter extends BaseStorage {
 
     // Appends the dated folder if enabled
     if (options.useDatedFolder) {   
-      var blobName ="images/original/" + date.useDate() + image.path;
-      var blobNameFormat = "images/" + date.useDate() + imageName + ".webp";
+      var blobName ="images/" + date.useDate() + image.name;
     } 
     else {
-      var blobName = "images/original/" + image.name;
-      var blobNameFormat = "images/" + imageName + ".webp";
+      var blobName = "images/" + image.name;
     }
     
     if (image.path.indexOf('_processed') < 0) {
       console.log("Image upload detected")
     } else {
       return new Promise(async (resolve, reject) => {
+        // resize images
+        await resize(image.path, image.ext);
+
         // make sure the container exists
         await fileService.createContainer(options.container);
-  
+
         // upload original image
         await fileService.createBlob(options.container, blobName, image.path, config);
-  
-        // resize images
-        for (let size of sizes) {
-          // const tmpImageName = image.path.replace(/\.[^/.]+$/, "")
-          const tmpFileResize = "/tmp/" + imageName + "-w" + size.x + ".webp";
-          
-          if (options.useDatedFolder) {
-            var blobNameResize = "images/size/" + sizes.x + "/" + date.useDate() + imageName + ".webp";
-          } 
-          else {
-            var blobNameResize = "images/size/" + size.x + "/" + imageName + ".webp";
-          }
-          await resize(image.path, tmpFileResize);
-  
-          //upload resized images
-          await fileService.createBlob(options.container, blobNameResize, tmpFileResize, config);
-        }
-  
-        // set .webp format extension
-        const tmpFileFormat = "/tmp/" + imageName + "_formatted" + ".webp";
-        // change format of image to .webp
-        await format(image.path, tmpFileFormat);
-  
-        // upload the optimized image
-        await fileService.createBlob(options.container, blobNameFormat, tmpFileFormat, config);
-  
-        const urlValue = fileService.getBlob(blobNameFormat);
-  
+        
+        // resolve/return url for/to Ghost
+        const urlValue = fileService.getBlob(blobName);
         if (!options.cdnUrl) {
           console.log("CDN not specified, urlValue is: " + urlValue);
           resolve(urlValue);
@@ -105,6 +80,23 @@ class AzureStorageAdapter extends BaseStorage {
           var cdnUrl = protocol + options.cdnUrl + parsedUrl.path;
           console.log("CDN is specified, urlValue is: " + cdnUrl);
           resolve(cdnUrl);
+        }
+
+        // set vars for resize upload
+        for (let size of sizes) {
+          const tmpResizeName = image.path.replace(/\.[^/.]+$/, "");
+
+          const tmpFileResize = `${tmpResizeName}-w${size.x}${image.ext}`;
+
+          if (options.useDatedFolder) {
+            var blobNameResize = "images/size/" + sizes.x + "/" + date.useDate() + imageName + image.ext;
+          } 
+          else {
+            var blobNameResize = "images/size/" + size.x + "/" + imageName + image.ext;
+          }
+
+          //upload resized images
+          await fileService.createBlob(options.container, blobNameResize, tmpFileResize, config);
         }
       });
     }
