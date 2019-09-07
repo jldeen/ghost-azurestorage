@@ -24,4 +24,6 @@ steps:
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(System.DefaultWorkingDirectory)'
+    PathtoPublish: '$(System.DefaultWorkingDirectory)/*.tgz'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
