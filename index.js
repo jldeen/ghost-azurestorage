@@ -60,9 +60,6 @@ class AzureStorageAdapter extends BaseStorage {
       console.log("Image upload detected")
     } else {
       return new Promise(async (resolve, reject) => {
-        // resize images
-        await resize(image.path, image.ext);
-
         // make sure the container exists
         await fileService.createContainer(options.container);
 
@@ -82,6 +79,9 @@ class AzureStorageAdapter extends BaseStorage {
           console.log("CDN is specified, urlValue is: " + cdnUrl);
           resolve(cdnUrl);
         }
+
+        // resize images
+        await resize(image.path, image.ext);
 
         // set vars for resize upload
         for (let size of sizes) {
