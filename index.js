@@ -3,10 +3,10 @@
 const BaseStorage = require("ghost-storage-base");
 const Promise = require("bluebird");
 const request = require("request");
-const url = require("url");
 const date = require("./lib/getDate")
 const sizes = require("./lib/sizes");
 const resize = require("./lib/resize");
+const getUrl = require("./lib/resolveUrl")
 const FileService = require("./lib/fileService");
 
 var options = {};
@@ -60,28 +60,18 @@ class AzureStorageAdapter extends BaseStorage {
       console.log("Image upload detected")
     } else {
       return new Promise(async (resolve, reject) => {
-        // resize images
-        await resize(image.path, image.ext);
-
         // make sure the container exists
         await fileService.createContainer(options.container);
 
         // upload original image
         await fileService.createBlob(options.container, blobName, image.path, config);
-        
+
         // resolve/return url for/to Ghost
         const urlValue = fileService.getBlob(blobName);
-        if (!options.cdnUrl) {
-          console.log("CDN not specified, urlValue is: " + urlValue);
-          resolve(urlValue);
-        }
-        else {
-          var parsedUrl = url.parse(urlValue, true, true);
-          var protocol = (options.useHttps ? "https" : "http") + "://";
-          var cdnUrl = protocol + options.cdnUrl + parsedUrl.path;
-          console.log("CDN is specified, urlValue is: " + cdnUrl);
-          resolve(cdnUrl);
-        }
+        resolve(getUrl.url(options, urlValue));
+
+        // resize images
+        await resize(image.path, image.ext);
 
         // set vars for resize upload
         for (let size of sizes) {
