@@ -22,6 +22,7 @@ class AzureStorageAdapter extends BaseStorage {
     options.container = options.container || "content";
     options.useHttps = options.useHttps == "true";
     options.useDatedFolder = options.useDatedFolder || false;
+    options.cacheControl = options.cacheControl || "2592000";
   }
 
   exists(filename) {
@@ -40,7 +41,7 @@ class AzureStorageAdapter extends BaseStorage {
     let config = {
       contentSettings: {
         contentType: image.type,
-        cacheControl: "public, max-age=2592000"
+        cacheControl: "public, max-age=" + options.cacheControl
       }
     };
 
@@ -89,7 +90,7 @@ class AzureStorageAdapter extends BaseStorage {
           const tmpFileResize = `${tmpResizeName}-w${size.x}${image.ext}`;
 
           if (options.useDatedFolder) {
-            var blobNameResize = "images/size/" + sizes.x + "/" + date.useDate() + imageName + image.ext;
+            var blobNameResize = "images/size/" + size.x + "/" + date.useDate() + imageName + image.ext;
           } 
           else {
             var blobNameResize = "images/size/" + size.x + "/" + imageName + image.ext;
