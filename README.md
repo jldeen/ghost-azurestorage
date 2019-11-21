@@ -99,6 +99,15 @@ Add `storage` block to file `config.js` in each environment as below:
 
 ## Environment Variables
 
-You can set your connection string as the Environment Variable `AZURE_STORAGE_CONNECTION_STRING`
+You can set your config using the following Environment Variables
+
+ | Config Key       | Environment Variable              |
+ | ---------------- | --------------------------------- |
+ | connectionString | `AZURE_STORAGE_CONNECTION_STRING` |
+ | container        | `AZURE_STORAGE_CONTAINER`         |
+ | cdnUrl           | `AZURE_STORAGE_CDN_URL`           |
+ | useHttps         | `AZURE_STORAGE_USE_HTTPS`         |
+ | cacheControl     | `AZURE_STORAGE_CACHE_CONTROL`     |
+ | useDatedFolder   | `AZURE_STORAGE_USE_DATED_FOLDER`  |
 
 Released under the [MIT license](https://github.com/jldeen/ghost-azurestorage/blob/master/LICENSE).
