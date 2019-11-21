@@ -19,10 +19,11 @@ class AzureStorageAdapter extends BaseStorage {
     options = config || {};
     options.connectionString =
     options.connectionString || process.env.AZURE_STORAGE_CONNECTION_STRING;
-    options.container = options.container || "content";
-    options.useHttps = options.useHttps == "true";
-    options.useDatedFolder = options.useDatedFolder || false;
-    options.cacheControl = options.cacheControl || "2592000";
+    options.container = options.container || process.env.AZURE_STORAGE_CONTAINER || "content";
+    options.cdnUrl = options.cdnUrl || process.env.AZURE_STORAGE_CDN_URL;
+    options.useHttps = (options.useHttps || process.env.AZURE_STORAGE_USE_HTTPS) == "true";
+    options.useDatedFolder = options.useDatedFolder || process.env.AZURE_STORAGE_USE_DATED_FOLDER || false;
+    options.cacheControl = options.cacheControl || process.env.AZURE_STORAGE_CACHE_CONTROL || "2592000";
   }
 
   exists(filename) {
