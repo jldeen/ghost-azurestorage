@@ -69,7 +69,7 @@ RUN cp -vR node_modules/ghost-storage-azure current/core/server/adapters/storage
 
 1. Create new Azure Storage Account.
 2. [Optional] Create a new container. This will be created on demand if it does not already exist.
-3. Get the connection string to your storage account. You can find this in the preview portal, or from running the below [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli?view=azure-cli-latest) commands:
+3. Get the connection string to your storage account. You can find this in the preview portal, or from running the below [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli?view=azure-cli-latest&WT.mc_id=devops-0000-jessde) commands:
 
 
 * `az login` (login to your azure account)
