@@ -25,11 +25,11 @@
   },
   "homepage": "https://jessicadeen.com",
   "dependencies": {
-    "azure-storage": "^2.10.2",
-    "bluebird": "^3.5.1",
+    "azure-storage": "^2.10.7",
+    "bluebird": "^3.7.2",
     "ghost-storage-base": "^0.0.3",
     "request": "^2.88.0",
-    "sharp": "^0.23.0",
+    "sharp": "^0.31.0",
     "url": "^0.11.0"
   }
 }
