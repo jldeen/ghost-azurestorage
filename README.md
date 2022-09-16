@@ -1,7 +1,7 @@
 # Ghost Storage Azure Adapter
 
 [![npm version](https://badge.fury.io/js/ghost-storage-azure.svg)](https://badge.fury.io/js/ghost-storage-azure)
-[![Build Status](https://dev.azure.com/jessicadeen/ghost-storage-azure/_apis/build/status/jldeen.ghost-azurestorage?branchName=master)](https://dev.azure.com/jessicadeen/ghost-storage-azure/_build/latest?definitionId=9&branchName=master)
+![Build Status](https://github.com/jldeen/ghost-azurestorage/actions/workflows/build.yaml/badge.svg)
 
 This module is based on the original [Ghost Azure Storage Adapter](https://github.com/Niyo/ghost-azurestorage) by [Niyo](https://github.com/Niyo), which allows you to store media files using Azure Storage and Azure Content Delivery Network resources instead of storing images on your local machine or local storage.
 
